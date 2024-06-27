@@ -1,9 +1,5 @@
-#include "Utils.h"
-#include "MyDataFun.h"
-#include "MyMathFun.h"
 #include "FlightControl.hpp"
 #include "DataLogger.hpp"
-#define CAMERA_ANGLE 30
 
 using namespace dji_osdk_ros;
 using namespace std;
@@ -56,8 +52,8 @@ public:
             ros::spinOnce();
             rate.sleep();
         }
-        MyDataFun::set_value(fc.position_offset, fc.current_pos_raw);
-        printf("Position offset: %s\n", MyDataFun::output_str(fc.position_offset).c_str());
+        setValue(fc.position_offset, fc.current_pos_raw);
+        printf("Position offset: %s\n", outputStr(fc.position_offset).c_str());
 
         printf("Use supersonic wave for height, now_height: %.2lf\n", fc.current_pos_raw.z);
 
@@ -146,9 +142,9 @@ public:
     void StepHold() {
         printf("###----StepHold----###\n");
         double hold_time = 20.0;
-        auto expected_point = MyDataFun::new_point(0, 0, expected_height);
+        auto expected_point = newPoint(0, 0, expected_height);
         printf("Hold %.2lf\n", toc - tic);
-        printf("ExpectedPoint: %s\n", MyDataFun::output_str(expected_point).c_str());
+        printf("ExpectedPoint: %s\n", outputStr(expected_point).c_str());
         printf("Search over: %s\n", searchOver?"YES":"NO");
         fc.M210_velocity_position_yaw_ctrl(0, 0, expected_height, fc.yaw_offset);
         // fc.M210_position_yaw_ctrl(0, 0, expected_height, fc.yaw_offset);
@@ -161,8 +157,8 @@ public:
     void StepBack() {
         printf("###----StepBack----###\n");
         double hold_time = 5.0;
-        auto expected_point = MyDataFun::new_point(0, 0, 2.5);
-        printf("ExpectedPoint: %s\n", MyDataFun::output_str(expected_point).c_str());
+        auto expected_point = newPoint(0, 0, 2.5);
+        printf("ExpectedPoint: %s\n", outputStr(expected_point).c_str());
         printf("Search over: %s\n", searchOver?"YES":"NO");
         // fc.UAV_Control_to_Point_with_yaw(expected_point, fc.yaw_offset);
         fc.M210_position_yaw_rate_ctrl(0, 0, 2.5, 0);
@@ -175,7 +171,7 @@ public:
         printf("###----StepLand----###\n");
         printf("Landing...\n");
         fc.takeoff_land(dji_osdk_ros::DroneTaskControl::Request::TASK_LAND);
-        if (MyMathFun::nearly_is(fc.current_pos_raw.z, 0.1, 0.2)) {
+        if (nearlyIs(fc.current_pos_raw.z, 0.1, 0.2)) {
             toStepEnd();
         }
         // task_state = BACK;
@@ -219,11 +215,14 @@ public:
             task_time = fc.get_time_now() - task_begin_time;
             printf("-----------\n");
             printf("Time: %lf\n", task_time);
-            printf("M210(State: %d) @ %s\n", task_state, MyDataFun::output_str(fc.current_pos_raw).c_str());
-            // printf("Gimbal %s\n", MyDataFun::output_str(current_gimbal_angle).c_str());
-            printf("Attitude (R%.2lf, P%.2lf, Y%.2lf) / deg\n", fc.current_euler_angle.x * RAD2DEG_COE,
-                                                        fc.current_euler_angle.y * RAD2DEG_COE,
-                                                        fc.current_euler_angle.z * RAD2DEG_COE);
+            printf("M210(State: %d) @ %s\n", task_state, outputStr(fc.current_pos_raw).c_str());
+            printf("Gimbal %s\n", outputStr(fc.current_gimbal_angle).c_str());
+            printf(
+                "Attitude (R%.2lf, P%.2lf, Y%.2lf) / deg\n", 
+                fc.current_euler_angle.x * RAD2DEG_COE,
+                fc.current_euler_angle.y * RAD2DEG_COE,
+                fc.current_euler_angle.z * RAD2DEG_COE
+            );
             printf("Search Over: %d\n", searchOver);                        
             printf("State time: %.2lf\n", toc - tic);
             if (fc.EMERGENCY) {

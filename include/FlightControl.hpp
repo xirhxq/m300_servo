@@ -1,5 +1,4 @@
-#include "MyDataFun.h"
-#include "MyMathFun.h"
+#include "libFlightControl.hpp"
 #include "Utils.h"
 
 #define KP 0.2
@@ -7,7 +6,6 @@
 #define Y_KP KP
 #define Z_KP KP
 #define YAW_KP 1.0 
-//#define UWB_INSTEAD_VO
 
 class FLIGHT_CONTROL {
 private:
@@ -16,7 +14,6 @@ private:
     ros::ServiceClient sdk_ctrl_authority_service, drone_task_service, set_local_pos_reference;
     uint8_t flight_status = 255;
     uint8_t display_mode = 255;
-    std::string cmd;
 
     ros::Subscriber attitudeSub;
     ros::Subscriber gimbal_sub;
@@ -47,10 +44,8 @@ public:
         gimbal_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/gimbal_angle", 10, &FLIGHT_CONTROL::gimbal_callback, this);
         height_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/height_above_takeoff", 10, &FLIGHT_CONTROL::height_callback, this);
         vo_pos_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/vo_position", 10, &FLIGHT_CONTROL::vo_pos_callback, this);
-        range_pos_sub = fc_nh.subscribe(uav_name + "/uwb/filter/odom", 10, &FLIGHT_CONTROL::range_pos_callback, this);
         flightStatusSub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/flight_status", 10, &FLIGHT_CONTROL::flight_status_callback, this);
         displayModeSub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/display_mode", 10, &FLIGHT_CONTROL::display_mode_callback, this);
-        cmd_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/commander_cmd", 10, &FLIGHT_CONTROL::cmd_callback, this);
         gimbal_angle_cmd_pub =
             nh_.advertise<geometry_msgs::Vector3>(uav_name + "/gimbal/gimbal_angle_cmd", 10);
         gimbal_speed_cmd_pub =
@@ -64,7 +59,6 @@ public:
         drone_task_service = nh_.serviceClient<dji_osdk_ros::DroneTaskControl>(
             uav_name + "/dji_osdk_ros/drone_task_control");
         set_local_pos_reference = nh_.serviceClient<dji_osdk_ros::SetLocalPosRef> (uav_name + "/dji_osdk_ros/set_local_pos_ref");
-
     }
 
     geometry_msgs::Vector3 toEulerAngle(geometry_msgs::Quaternion quat) {
@@ -79,14 +73,12 @@ public:
     void attitude_callback(const geometry_msgs::QuaternionStamped::ConstPtr& msg) {
         current_atti.quaternion = msg->quaternion;
         current_euler_angle = toEulerAngle(current_atti.quaternion);
-        // MyDataFun::output_str(current_euler_angle).c_str());
     }
     
     void gimbal_callback(const geometry_msgs::Vector3Stamped::ConstPtr& msg) {
         current_gimbal_angle.x = msg->vector.y;
         current_gimbal_angle.y = msg->vector.x;
         current_gimbal_angle.z = msg->vector.z;
-        // printf("Gimbal %s\n", MyDataFun::output_str(current_gimbal_angle).c_str());
     }
 
     void height_callback(const std_msgs::Float32::ConstPtr& msg) {
@@ -95,10 +87,6 @@ public:
 
     void vo_pos_callback(const dji_osdk_ros::VOPosition::ConstPtr& msg) {
         current_vo_pos = *msg;
-        #ifndef UWB_INSTEAD_VO
-        current_pos_raw.x = current_vo_pos.y;
-        current_pos_raw.y = current_vo_pos.x;
-        #endif
     }
 
     Point compensate_position_offset(Point _p){
@@ -123,47 +111,23 @@ public:
         return res;
     }
 
-    void range_pos_callback(const nav_msgs::Odometry::ConstPtr& msg){
-        MyDataFun::set_value(current_range_pos, msg->pose.pose.position);
-        // current_range_pos = compensate_yaw_offset(current_range_pos, yaw_offset);
-        #ifdef UWB_INSTEAD_VO
-        current_pos_raw.x = current_range_pos.x;
-        current_pos_raw.y = current_range_pos.y;
-	current_pos_raw.z = current_range_pos.z;
-        #endif
-    }
-
     void flight_status_callback(const std_msgs::UInt8::ConstPtr& msg) {
         flight_status = msg->data;
     }
-
 
     void display_mode_callback(const std_msgs::UInt8::ConstPtr& msg) {
         display_mode = msg->data;
     }
 
-
-    void cmd_callback(const std_msgs::String::ConstPtr& msg){
-        cmd = msg->data;
-        if (cmd == "0" || cmd == "emg" || cmd == "EMERGENCY"){
-            EMERGENCY = true;
-        }
-        if (cmd == "233" || cmd == "ok"){
-            EMERGENCY = false;
-        }
-    }
-
-
     template<typename T>
     bool is_near(T a, double r){
-        return MyDataFun::dis(a, current_pos_raw) <= r;
+        return dis(a, current_pos_raw) <= r;
     }
 
     template<typename T>
     bool is_near_2d(T a, double r){
-        return MyDataFun::dis_2d(a, current_pos_raw) <= r;
+        return dis2d(a, current_pos_raw) <= r;
     }
-
 
     bool takeoff_land(int task) {
         dji_osdk_ros::DroneTaskControl droneTaskControl;
@@ -390,27 +354,27 @@ public:
         sat.x = 0.1;
         sat.y = 0.1;
         sat.z = 0.2;
-        MyDataFun::saturate_vel(vel, sat);
-        printf("Velo cmd: %s\n", MyDataFun::output_str(vel).c_str());
+        saturateVel(vel, sat);
+        printf("Velo cmd: %s\n", outputStr(vel).c_str());
         M210_velocity_yaw_rate_ctrl(vel.x, vel.y, vel.z, yaw_rate);
     }
 
     template<typename T>
     void UAV_Control_to_Point_facing_it(T ctrl_cmd){
-        double yaw_diff = MyDataFun::angle_2d(current_pos_raw, ctrl_cmd) - current_euler_angle.z;
-        yaw_diff = MyMathFun::rad_round(yaw_diff);
-        if (MyDataFun::dis_2d(ctrl_cmd, current_pos_raw) <= 1) yaw_diff = 0;
+        double yaw_diff = angle2d(current_pos_raw, ctrl_cmd) - current_euler_angle.z;
+        yaw_diff = radRound(yaw_diff);
+        if (dis2d(ctrl_cmd, current_pos_raw) <= 1) yaw_diff = 0;
         printf("Yaw diff: %.2lf\n", yaw_diff);
-        UAV_velocity_yaw_rate_ctrl(MyDataFun::minus(ctrl_cmd, current_pos_raw), yaw_diff);
+        UAV_velocity_yaw_rate_ctrl(minus(ctrl_cmd, current_pos_raw), yaw_diff);
     }
 
     template<typename T>
     void UAV_Control_to_Point_with_yaw(T ctrl_cmd, double _yaw){
         double yaw_diff = _yaw - current_euler_angle.z;
-        yaw_diff = MyMathFun::rad_round(yaw_diff);
-        if (MyDataFun::dis_2d(ctrl_cmd, current_pos_raw) <= 1) yaw_diff = 0;
+        yaw_diff = radRound(yaw_diff);
+        if (dis2d(ctrl_cmd, current_pos_raw) <= 1) yaw_diff = 0;
         printf("Yaw diff: %.2lf\n", yaw_diff);
-        UAV_velocity_yaw_rate_ctrl(MyDataFun::minus(ctrl_cmd, current_pos_raw), yaw_diff);
+        UAV_velocity_yaw_rate_ctrl(minus(ctrl_cmd, current_pos_raw), yaw_diff);
     }
 
     template<typename T>
