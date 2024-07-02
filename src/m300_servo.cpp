@@ -12,33 +12,21 @@ private:
 
     typedef enum { TAKEOFF, ASCEND, SEARCH, TRACK, HOLD, BACK, LAND, END } ControlState;
     ControlState task_state;
-    vector<geometry_msgs::Vector3> search_tra;
-    size_t search_tra_cnt;
     double task_begin_time, task_time;
-    std::vector<std::pair<double, Point>> tracking_tra;
-    size_t track_tra_cnt;
     Point desired_point;
+    double expected_height = 1.0;
 
-    double expected_height = 7.5;
     double tic, toc;
 
     ros::Rate rate;
 
-    ros::Publisher uavReadyPub, uavStatePub;
     ros::Subscriber searchPointSub;
-    int id = -1;
-    bool searchOver;
-    int searchState;
 
 public:
 
-    TASK(string name, bool ON_GROUND, string start_state, ros::NodeHandle nh_, bool ignoreSearch): 
+    TASK(string name, bool ON_GROUND, string start_state, ros::NodeHandle nh_): 
         fc(name, nh_), rate(50){
-        
-        uavReadyPub = nh_.advertise<std_msgs::Empty>(name + "/uavReady", 10);
-        searchOver = ignoreSearch;
-        
-        uavStatePub = nh_.advertise<std_msgs::Int16>(name + "/uavState", 1);
+
         searchPointSub = nh_.subscribe(name + "/searchPoint", 1, &TASK::searchPointCallback, this);
 
         for (int i = 0; i < 100; i++) {
@@ -57,23 +45,8 @@ public:
 
         printf("Use supersonic wave for height, now_height: %.2lf\n", fc.current_pos_raw.z);
 
-        printf("Ignoring Search? %c\n", searchOver?'y':'n');
-        string confirm_input;
-        while (confirm_input != "yes"){
-            printf("Confirm: yes/no\n");
-            cin >> confirm_input;
-            if (confirm_input == "no"){
-                ROS_ERROR("Said no! Quit");
-                assert(0);
-            }
-        }
-
         printf("Waiting for command to take off...\n");
         sleep(3);
-        while(id == -1 && ros::ok()){
-             ros::spinOnce();
-             rate.sleep();
-        }
         if (!ON_GROUND) {
             fc.obtain_control();
             fc.monitoredTakeoff();
@@ -96,10 +69,6 @@ public:
     }
 
     void searchPointCallback(const std_msgs::Float64MultiArray::ConstPtr& msg) {
-        id = int(msg->data[0]);
-        if (id == 6) {
-            searchOver = true;
-        }
     }
 
     void toStepTakeoff(){
@@ -135,7 +104,6 @@ public:
         if (toc - tic >= 15.0){
             // printf("Arrive expected height @ %.2lf\n", expected_height);
             toStepHold();
-            uavReadyPub.publish(std_msgs::Empty());
         }
     }
 
@@ -145,11 +113,10 @@ public:
         auto expected_point = newPoint(0, 0, expected_height);
         printf("Hold %.2lf\n", toc - tic);
         printf("ExpectedPoint: %s\n", outputStr(expected_point).c_str());
-        printf("Search over: %s\n", searchOver?"YES":"NO");
         fc.M210_velocity_position_yaw_ctrl(0, 0, expected_height, fc.yaw_offset);
         // fc.M210_position_yaw_ctrl(0, 0, expected_height, fc.yaw_offset);
         // fc.UAV_Control_to_Point_with_yaw(expected_point, fc.yaw_offset);
-        if (toc - tic >= 20.0 && searchOver){
+        if (toc - tic >= 20.0){
             toStepBack();
         }
     }
@@ -159,7 +126,6 @@ public:
         double hold_time = 5.0;
         auto expected_point = newPoint(0, 0, 2.5);
         printf("ExpectedPoint: %s\n", outputStr(expected_point).c_str());
-        printf("Search over: %s\n", searchOver?"YES":"NO");
         // fc.UAV_Control_to_Point_with_yaw(expected_point, fc.yaw_offset);
         fc.M210_position_yaw_rate_ctrl(0, 0, 2.5, 0);
         if (toc - tic >= 20.0){
@@ -178,12 +144,6 @@ public:
     }
 
     void ControlStateMachine() {
-        std_msgs::Int16 msg;
-        msg.data = id * 100 + task_state * 10;
-        if (task_state == HOLD) {
-            msg.data += 1;
-        }
-        uavStatePub.publish(msg);
         switch (task_state) {
             case TAKEOFF: {
                 StepTakeoff();
@@ -222,8 +182,7 @@ public:
                 fc.current_euler_angle.x * RAD2DEG_COE,
                 fc.current_euler_angle.y * RAD2DEG_COE,
                 fc.current_euler_angle.z * RAD2DEG_COE
-            );
-            printf("Search Over: %d\n", searchOver);                        
+            );                     
             printf("State time: %.2lf\n", toc - tic);
             if (fc.EMERGENCY) {
                 fc.M210_hold_ctrl();
@@ -281,15 +240,8 @@ int main(int argc, char** argv) {
         start_state = std::string(argv[3]);
     }
 
-    bool ignoreSearch = false;
-    printf("argc == %d, argv[4] == %s\n", argc, argv[4]);
-    if (argc > 4 && std::string(argv[4]) == "ignoreSearch") {
-        ROS_WARN("IGNORING SEARCH!!!");
-        ignoreSearch = true;
-    }
 
-
-    TASK t(uav_name, ON_GROUND, start_state, nh, ignoreSearch);
+    TASK t(uav_name, ON_GROUND, start_state, nh);
 
     
 
