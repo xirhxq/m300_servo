@@ -40,12 +40,45 @@ public:
 
 
     FLIGHT_CONTROL(std::string uav_name, ros::NodeHandle nh_): fc_nh(nh_){
-        attitudeSub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/attitude", 10, &FLIGHT_CONTROL::attitude_callback, this);
-        gimbal_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/gimbal_angle", 10, &FLIGHT_CONTROL::gimbal_callback, this);
-        height_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/height_above_takeoff", 10, &FLIGHT_CONTROL::height_callback, this);
-        vo_pos_sub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/vo_position", 10, &FLIGHT_CONTROL::vo_pos_callback, this);
-        flightStatusSub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/flight_status", 10, &FLIGHT_CONTROL::flight_status_callback, this);
-        displayModeSub = fc_nh.subscribe(uav_name + "/dji_osdk_ros/display_mode", 10, &FLIGHT_CONTROL::display_mode_callback, this);
+        attitudeSub = fc_nh.subscribe<geometry_msgs::QuaternionStamped>(
+            uav_name + "/dji_osdk_ros/attitude", 10, 
+            [this](const geometry_msgs::QuaternionStamped::ConstPtr& msg) {
+                this->current_atti.quaternion = msg->quaternion;
+                this->current_euler_angle = this->toEulerAngle(this->current_atti.quaternion);
+            }
+        );
+        gimbal_sub = fc_nh.subscribe<geometry_msgs::Vector3Stamped>(
+            uav_name + "/dji_osdk_ros/gimbal_angle", 10, 
+            [this](const geometry_msgs::Vector3Stamped::ConstPtr& msg) {
+                this->current_gimbal_angle.x = msg->vector.y;
+                this->current_gimbal_angle.y = msg->vector.x;
+                this->current_gimbal_angle.z = msg->vector.z;
+            }
+        );
+        height_sub = fc_nh.subscribe<std_msgs::Float32>(
+            uav_name + "/dji_osdk_ros/height_above_takeoff", 10, 
+            [this](const std_msgs::Float32::ConstPtr& msg) {
+                this->current_height = *msg;
+            }
+        );
+        vo_pos_sub = fc_nh.subscribe<dji_osdk_ros::VOPosition>(
+            uav_name + "/dji_osdk_ros/vo_position", 10, 
+            [this](const dji_osdk_ros::VOPosition::ConstPtr& msg) {
+                this->current_vo_pos = *msg;
+            }
+        );
+        flightStatusSub = fc_nh.subscribe<std_msgs::UInt8>(
+            uav_name + "/dji_osdk_ros/flight_status", 10, 
+            [this](const std_msgs::UInt8::ConstPtr& msg) {
+                this->flight_status = msg->data;
+            }
+        );
+        displayModeSub = fc_nh.subscribe<std_msgs::UInt8>(
+            uav_name + "/dji_osdk_ros/display_mode", 10, 
+            [this](const std_msgs::UInt8::ConstPtr& msg) {
+                this->display_mode = msg->data;
+            }
+        );
         gimbal_angle_cmd_pub =
             nh_.advertise<geometry_msgs::Vector3>(uav_name + "/gimbal/gimbal_angle_cmd", 10);
         gimbal_speed_cmd_pub =
@@ -70,25 +103,6 @@ public:
         return ans;
     }
 
-    void attitude_callback(const geometry_msgs::QuaternionStamped::ConstPtr& msg) {
-        current_atti.quaternion = msg->quaternion;
-        current_euler_angle = toEulerAngle(current_atti.quaternion);
-    }
-    
-    void gimbal_callback(const geometry_msgs::Vector3Stamped::ConstPtr& msg) {
-        current_gimbal_angle.x = msg->vector.y;
-        current_gimbal_angle.y = msg->vector.x;
-        current_gimbal_angle.z = msg->vector.z;
-    }
-
-    void height_callback(const std_msgs::Float32::ConstPtr& msg) {
-        current_height = *msg;
-    }
-
-    void vo_pos_callback(const dji_osdk_ros::VOPosition::ConstPtr& msg) {
-        current_vo_pos = *msg;
-    }
-
     Point compensate_position_offset(Point _p){
         Point res;
         res.x = _p.x + position_offset.x;
@@ -96,6 +110,7 @@ public:
         res.z = _p.z;
         return res;
     }
+
     Point compensate_offset(Point _p){
         Point res;
         res.x = _p.x * cos(yaw_offset) - _p.y * sin(yaw_offset) + position_offset.x;
@@ -103,20 +118,13 @@ public:
         res.z = _p.z;
         return res;
     }
+
     Point compensate_yaw_offset(Point _p, double _y){
         Point res;
         res.x = _p.x * cos(_y) - _p.y * sin(_y);
         res.y = _p.x * sin(_y) + _p.y * cos(_y);
         res.z = _p.z;
         return res;
-    }
-
-    void flight_status_callback(const std_msgs::UInt8::ConstPtr& msg) {
-        flight_status = msg->data;
-    }
-
-    void display_mode_callback(const std_msgs::UInt8::ConstPtr& msg) {
-        display_mode = msg->data;
     }
 
     template<typename T>
