@@ -36,9 +36,9 @@
 
 #ifndef PROJECT_DJI_SDK_H_H
 #define PROJECT_DJI_SDK_H_H
-#include <dji_control.hpp>
-#include <dji_status.hpp>
-#include <dji_version.hpp>
+// #include <dji_control.hpp>
+// #include <dji_status.hpp>
+// #include <dji_version.hpp>
 namespace DJISDK {
 
 /*!
@@ -48,7 +48,7 @@ namespace DJISDK {
  */
 enum DroneFirmwareVersion
 {
-  M100_31 = DJI::OSDK::Version::M100_31,
+  M100_31 = 0x03010A00,
 };
 
 typedef enum AircraftVersion
@@ -63,25 +63,25 @@ typedef enum AircraftVersion
 
 enum FlightControlFlag
 {
-  HORIZONTAL_ANGLE         = DJI::OSDK::Control::HORIZONTAL_ANGLE,
-  HORIZONTAL_VELOCITY      = DJI::OSDK::Control::HORIZONTAL_VELOCITY,
-  HORIZONTAL_POSITION      = DJI::OSDK::Control::HORIZONTAL_POSITION,
+  HORIZONTAL_ANGLE         = 0x00,
+  HORIZONTAL_VELOCITY      = 0x40,
+  HORIZONTAL_POSITION      = 0x80,
   // Horizontal angular rate is supported only by A3/N3 based platform
   // and is NOT supported by M100
-  HORIZONTAL_ANGULAR_RATE  = DJI::OSDK::Control::HORIZONTAL_ANGULAR_RATE,
+  HORIZONTAL_ANGULAR_RATE  = 0xC0,
 
-  VERTICAL_VELOCITY = DJI::OSDK::Control::VERTICAL_VELOCITY,
-  VERTICAL_POSITION = DJI::OSDK::Control::VERTICAL_POSITION,
-  VERTICAL_THRUST   = DJI::OSDK::Control::VERTICAL_THRUST,
+  VERTICAL_VELOCITY = 0x00,
+  VERTICAL_POSITION = 0x10,
+  VERTICAL_THRUST   = 0x20,
 
-  YAW_ANGLE = DJI::OSDK::Control::YAW_ANGLE,
-  YAW_RATE  = DJI::OSDK::Control::YAW_RATE,
+  YAW_ANGLE = 0x00,
+  YAW_RATE  = 0x08,
 
-  HORIZONTAL_GROUND = DJI::OSDK::Control::HORIZONTAL_GROUND,
-  HORIZONTAL_BODY   = DJI::OSDK::Control::HORIZONTAL_BODY,
+  HORIZONTAL_GROUND = 0x00,
+  HORIZONTAL_BODY   = 0x02,
 
-  STABLE_DISABLE = DJI::OSDK::Control::STABLE_DISABLE,
-  STABLE_ENABLE  = DJI::OSDK::Control::STABLE_ENABLE
+  STABLE_DISABLE = 0x00,
+  STABLE_ENABLE  = 0x01
 };
 
 /*!
@@ -92,12 +92,12 @@ enum DisplayMode
 {
   /*! This mode requires the user to manually
    * control the aircraft to remain stable in air. */
-  MODE_MANUAL_CTRL=DJI::OSDK::VehicleStatus::DisplayMode::MODE_MANUAL_CTRL,
+  MODE_MANUAL_CTRL=0,
   /*! In this mode, the aircraft can keep
    * attitude stabilization and only use the
    * barometer for positioning to control the altitude. <br>
    * The aircraft can not autonomously locate and hover stably.*/
-  MODE_ATTITUDE=DJI::OSDK::VehicleStatus::DisplayMode::MODE_ATTITUDE,
+  MODE_ATTITUDE=1,
 
   /*! The aircraft is in normal GPS mode. <br>
    * In normal GPS mode, the aircraft can
@@ -105,34 +105,34 @@ enum DisplayMode
    *  The sensitivity of the aircraft to the
    *  command response is moderate.
    */
-  MODE_P_GPS=DJI::OSDK::VehicleStatus::DisplayMode::MODE_P_GPS,
+  MODE_P_GPS=6,
   /*! In hotpoint mode */
-  MODE_HOTPOINT_MODE=DJI::OSDK::VehicleStatus::DisplayMode::MODE_HOTPOINT_MODE,
+  MODE_HOTPOINT_MODE=9,
   /*! In this mode, user can push the throttle
    * stick to complete stable take-off. */
-  MODE_ASSISTED_TAKEOFF=DJI::OSDK::VehicleStatus::DisplayMode::MODE_ASSISTED_TAKEOFF,
+  MODE_ASSISTED_TAKEOFF=10,
   /*! In this mode, the aircraft will autonomously
    * start motor, ascend and finally hover. */
-  MODE_AUTO_TAKEOFF=DJI::OSDK::VehicleStatus::DisplayMode::MODE_AUTO_TAKEOFF,
+  MODE_AUTO_TAKEOFF=11,
   /*! In this mode, the aircraft can land autonomously. */
-  MODE_AUTO_LANDING=DJI::OSDK::VehicleStatus::DisplayMode::MODE_AUTO_LANDING,
+  MODE_AUTO_LANDING=12,
   /*! In this mode, the aircraft can antonomously return the
    * last recorded Home Point. <br>
    * There are three types of this mode: Smart RTH(Return-to-Home),
    * Low Batterry RTH, and Failsafe RTTH.  */
-  MODE_NAVI_GO_HOME=DJI::OSDK::VehicleStatus::DisplayMode::MODE_NAVI_GO_HOME,
+  MODE_NAVI_GO_HOME=15,
   /*! In this mode, the aircraft is controled by SDK API. <br>
    * User can directly define the control mode of horizon
    * and vertical directions and send control datas to aircraft. */
-  MODE_NAVI_SDK_CTRL=DJI::OSDK::VehicleStatus::DisplayMode::MODE_NAVI_SDK_CTRL,
+  MODE_NAVI_SDK_CTRL=17,
   
   /*! drone is forced to land, might due to low battery */
-  MODE_FORCE_AUTO_LANDING=DJI::OSDK::VehicleStatus::DisplayMode::MODE_FORCE_AUTO_LANDING,
+  MODE_FORCE_AUTO_LANDING=33,
   /*! drone will search for the last position where the rc is not lost */
-  MODE_SEARCH_MODE =DJI::OSDK::VehicleStatus::DisplayMode::MODE_SEARCH_MODE,
+  MODE_SEARCH_MODE =40,
   /*! Mode for motor starting. <br>
    * Every time user unlock the motor, this will be the first mode. */
-  MODE_ENGINE_START = DJI::OSDK::VehicleStatus::DisplayMode::MODE_ENGINE_START
+  MODE_ENGINE_START = 41
 };
 
 /*!
@@ -144,18 +144,18 @@ enum DisplayMode
  */
 enum FlightStatus
 {
-  STATUS_STOPPED   = DJI::OSDK::VehicleStatus::FlightStatus::STOPED,
-  STATUS_ON_GROUND = DJI::OSDK::VehicleStatus::FlightStatus::ON_GROUND,
-  STATUS_IN_AIR    = DJI::OSDK::VehicleStatus::FlightStatus::IN_AIR
+  STATUS_STOPPED   = 0,
+  STATUS_ON_GROUND = 1,
+  STATUS_IN_AIR    = 2
 };
 
 enum M100FlightStatus
 {
-  M100_STATUS_ON_GROUND        = DJI::OSDK::VehicleStatus::M100FlightStatus::ON_GROUND_STANDBY,
-  M100_STATUS_TAKINGOFF        = DJI::OSDK::VehicleStatus::M100FlightStatus::TAKEOFF,
-  M100_STATUS_IN_AIR           = DJI::OSDK::VehicleStatus::M100FlightStatus::IN_AIR_STANDBY,
-  M100_STATUS_LANDING          = DJI::OSDK::VehicleStatus::M100FlightStatus::LANDING,
-  M100_STATUS_FINISHED_LANDING = DJI::OSDK::VehicleStatus::M100FlightStatus::FINISHING_LANDING
+  M100_STATUS_ON_GROUND        = 1,
+  M100_STATUS_TAKINGOFF        = 2,
+  M100_STATUS_IN_AIR           = 3,
+  M100_STATUS_LANDING          = 4,
+  M100_STATUS_FINISHED_LANDING = 5
 };
 
 }
@@ -208,7 +208,7 @@ enum M100FlightStatus
 #include <dji_osdk_ros/SetupCameraStream.h>
 #endif
 
-using namespace DJI::OSDK;
+// using namespace DJI::OSDK;
 
 
 #endif
